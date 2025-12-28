@@ -1,4 +1,3 @@
-import koffi from 'koffi';
 import path from 'path';
 import fs from 'fs';
 
@@ -42,19 +41,25 @@ function getLibraryPath(): string {
   );
 }
 
-// Load the native library
+// Lazy-load the native library (only when actually called)
 let Convert: any;
 
-try {
-  const libPath = getLibraryPath();
-  const lib = koffi.load(libPath);
+function ensureLibraryLoaded() {
+  if (Convert) return;
 
-  // Define function signature using koffi's declarative syntax
-  // koffi handles char** (array of strings) and char* (string) conversion automatically
-  Convert = lib.func('char* Convert(char* htmlInput, char** elementsToStrip, int elementsLen)');
-} catch (error) {
-  console.error('Failed to load gremllm native library:', error);
-  throw error;
+  try {
+    // Dynamic import of koffi - only loads when function is called
+    const koffi = require('koffi');
+    const libPath = getLibraryPath();
+    const lib = koffi.load(libPath);
+
+    // Define function signature using koffi's declarative syntax
+    // koffi handles char** (array of strings) and char* (string) conversion automatically
+    Convert = lib.func('char* Convert(char* htmlInput, char** elementsToStrip, int elementsLen)');
+  } catch (error) {
+    console.error('Failed to load gremllm native library:', error);
+    throw error;
+  }
 }
 
 /**
@@ -75,6 +80,9 @@ export function convert(html: string, elementsToStrip: string[] = []): string {
   }
 
   try {
+    // Lazy-load the library only when convert is actually called
+    ensureLibraryLoaded();
+
     // koffi automatically handles the conversion of JavaScript arrays to char**
     // and char* return values to JavaScript strings
     const result = Convert(html, elementsToStrip, elementsToStrip.length);

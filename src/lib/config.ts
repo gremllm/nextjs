@@ -42,7 +42,35 @@ export function withGremllm(
     // Pass gremllm config via environment variables so it's accessible in middleware
     env: {
       ...nextConfig.env,
-      __GREMLLM_CONFIG__: JSON.stringify(gremllmConfig),
+      GREMLLM_CONFIG: JSON.stringify(gremllmConfig),
+    },
+
+    // Configure webpack to externalize native modules
+    webpack: (config: any, options: any) => {
+      // Externalize koffi (native module) on the server side
+      if (options.isServer) {
+        config.externals = config.externals || [];
+
+        // Handle both array and function externals
+        if (Array.isArray(config.externals)) {
+          config.externals.push('koffi');
+        } else if (typeof config.externals === 'function') {
+          const originalExternals = config.externals;
+          config.externals = async (context: any, request: any, callback: any) => {
+            if (request === 'koffi') {
+              return callback(null, 'commonjs ' + request);
+            }
+            return originalExternals(context, request, callback);
+          };
+        }
+      }
+
+      // Call the user's webpack config if they have one
+      if (nextConfig.webpack) {
+        return nextConfig.webpack(config, options);
+      }
+
+      return config;
     },
   };
 }
