@@ -26,13 +26,15 @@ export async function GET(request: NextRequest) {
     // Read config from environment (set by withGremllm)
     const configStr = process.env.GREMLLM_CONFIG;
     let elementsToStrip: string[] = [];
+    let debug = false;
 
     if (configStr) {
       try {
         const config = JSON.parse(configStr);
         elementsToStrip = config.elementsToStrip || [];
+        debug = config.debug || false;
 
-        if (config.debug) {
+        if (debug) {
           console.log('[gremllm] Converting URL:', targetUrl);
           console.log('[gremllm] Config:', config);
         }
@@ -41,8 +43,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Determine fetch URL: use GREMLLM_BASE_URL if set (for internal routing)
+    let fetchUrl = targetUrl;
+    const baseUrl = process.env.GREMLLM_BASE_URL;
+
+    if (baseUrl) {
+      const parsedTarget = new URL(targetUrl);
+      fetchUrl = `${baseUrl}${parsedTarget.pathname}${parsedTarget.search}`;
+
+      if (debug) {
+        console.log('[gremllm] Using base URL:', baseUrl);
+        console.log('[gremllm] Fetch URL:', fetchUrl);
+      }
+    }
+
     // Fetch the original HTML
-    const response = await fetch(targetUrl, {
+    const response = await fetch(fetchUrl, {
       headers: {
         'User-Agent': request.headers.get('user-agent') || 'gremllm-bot',
       },

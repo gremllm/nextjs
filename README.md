@@ -174,6 +174,21 @@ The following elements are **always** stripped:
 - `script`, `style`, `noscript` - Code and styling
 - `svg`, `iframe` - Embedded content
 
+### Environment Variables
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `GREMLLM_BASE_URL` | `string` | `undefined` | Override base URL for internal fetches. Useful when running behind a proxy/load balancer with SSL termination. Example: `http://localhost:3000` |
+
+**Use case**: When your application is behind a load balancer or ingress with HTTPS, but runs on HTTP internally, set this to avoid SSL errors:
+
+```bash
+# In your deployment
+GREMLLM_BASE_URL=http://localhost:3000
+```
+
+This will make gremllm fetch pages using `http://localhost:3000/path` instead of the external `https://yourdomain.com/path`.
+
 ## Platform Support
 
 The native gremllm library is automatically downloaded for:
