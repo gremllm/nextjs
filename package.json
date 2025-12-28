@@ -16,6 +16,10 @@
     "./middleware": {
       "types": "./dist/middleware-helper.d.ts",
       "default": "./dist/middleware-helper.js"
+    },
+    "./metadata": {
+      "types": "./dist/metadata.d.ts",
+      "default": "./dist/metadata.js"
     }
   },
   "files": [
