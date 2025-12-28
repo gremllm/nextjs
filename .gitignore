@@ -2,7 +2,4 @@ node_modules/
 dist/
 *.log
 .DS_Store
-binaries/*.so
-binaries/*.dylib
-binaries/*.dll
 .next/

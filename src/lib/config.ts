@@ -46,18 +46,13 @@ export function withGremllm(
     },
 
     // Ensure binaries are included in standalone builds
-    experimental: {
-      ...nextConfig.experimental,
       outputFileTracingIncludes: {
-        // @ts-expect-error - outputFileTracingIncludes exists in Next.js 13+ but types may be outdated
-        ...(nextConfig.experimental?.outputFileTracingIncludes || {}),
+        ...(nextConfig.outputFileTracingIncludes || {}),
         '/**': [
-          // @ts-expect-error - outputFileTracingIncludes exists in Next.js 13+ but types may be outdated
-          ...(nextConfig.experimental?.outputFileTracingIncludes?.['/**'] || []),
+          ...(nextConfig.outputFileTracingIncludes?.['/**'] || []),
           './node_modules/@gremllm/nextjs/binaries/**/*',
         ],
-      },
-    } as any,
+    },
 
     // Configure webpack to externalize native modules
     webpack: (config: any, options: any) => {
