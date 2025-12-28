@@ -14,8 +14,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "prepublishOnly": "npm run build",
-    "postinstall": "node dist/scripts/download-binary.js"
+    "prepare": "npm run build",
+    "postinstall": "node dist/scripts/download-binary.js || true"
   },
   "keywords": [
     "nextjs",
@@ -34,8 +34,7 @@
     "next": ">=13.0.0"
   },
   "dependencies": {
-    "ffi-napi": "^4.0.3",
-    "ref-napi": "^3.0.3"
+    "koffi": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

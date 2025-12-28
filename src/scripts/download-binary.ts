@@ -2,6 +2,10 @@ import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 const GITHUB_REPO = 'gremllm/lib';
 const BINARY_DIR = path.join(__dirname, '../../binaries');
@@ -17,24 +21,24 @@ interface Release {
 }
 
 /**
- * Determine the binary filename based on platform and architecture
+ * Determine the archive filename based on platform and architecture
  */
-function getBinaryName(): string {
+function getArchiveName(): string {
   const platform = process.platform;
   const arch = process.arch;
 
   if (platform === 'darwin') {
     if (arch === 'arm64') {
-      return 'libschema_darwin_arm64.dylib';
+      return 'libschema-darwin-arm64_darwin_arm64_v8.0.tar.gz';
     }
-    return 'libschema_darwin_amd64.dylib';
+    return 'libschema-darwin-amd64_darwin_amd64_v1.tar.gz';
   } else if (platform === 'linux') {
     if (arch === 'arm64') {
-      return 'libschema_linux_arm64.so';
+      return 'libschema-linux-arm64_linux_arm64_v8.0.tar.gz';
     }
-    return 'libschema_linux_amd64.so';
+    return 'libschema-linux-amd64_linux_amd64_v1.tar.gz';
   } else if (platform === 'win32') {
-    return 'libschema_windows_amd64.dll';
+    return 'libschema-windows-amd64_windows_amd64_v1.zip';
   }
 
   throw new Error(`Unsupported platform: ${platform} ${arch}`);
@@ -114,10 +118,6 @@ async function downloadFile(url: string, dest: string): Promise<void> {
 
       fileStream.on('finish', () => {
         fileStream.close();
-        // Make executable on Unix systems
-        if (process.platform !== 'win32') {
-          fs.chmodSync(dest, 0o755);
-        }
         resolve();
       });
 
@@ -130,14 +130,64 @@ async function downloadFile(url: string, dest: string): Promise<void> {
 }
 
 /**
+ * Extract archive and move library to destination
+ */
+async function extractArchive(archivePath: string, destDir: string): Promise<string> {
+  const isZip = archivePath.endsWith('.zip');
+  const isTarGz = archivePath.endsWith('.tar.gz');
+
+  if (!isZip && !isTarGz) {
+    throw new Error(`Unsupported archive format: ${archivePath}`);
+  }
+
+  // Create temp extraction directory
+  const tempDir = path.join(destDir, '.temp-extract');
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+
+  try {
+    if (isTarGz) {
+      // Extract tar.gz
+      await execAsync(`tar -xzf "${archivePath}" -C "${tempDir}"`);
+    } else {
+      // Extract zip
+      await execAsync(`unzip -q "${archivePath}" -d "${tempDir}"`);
+    }
+
+    // Find the library file in the extracted contents
+    // The library is named 'libschema' without extension
+    const files = fs.readdirSync(tempDir);
+    const libFile = files.find(f =>
+      f === 'libschema' || f.endsWith('.dylib') || f.endsWith('.so') || f.endsWith('.dll')
+    );
+
+    if (!libFile) {
+      throw new Error(`No library file found in archive: ${files.join(', ')}`);
+    }
+
+    const extractedLibPath = path.join(tempDir, libFile);
+
+    // Make executable on Unix systems
+    if (process.platform !== 'win32') {
+      fs.chmodSync(extractedLibPath, 0o755);
+    }
+
+    return extractedLibPath;
+  } finally {
+    // Cleanup temp directory will happen after file is moved
+  }
+}
+
+/**
  * Main download function
  */
 async function main() {
   try {
     console.log('🔍 Detecting platform...');
-    const binaryName = getBinaryName();
+    const archiveName = getArchiveName();
     const localFilename = getLocalFilename();
-    console.log(`📦 Need: ${binaryName}`);
+    console.log(`📦 Need: ${archiveName}`);
 
     // Create binaries directory if it doesn't exist
     if (!fs.existsSync(BINARY_DIR)) {
@@ -157,17 +207,32 @@ async function main() {
     console.log(`📌 Latest release: ${release.tag_name}`);
 
     // Find the matching asset
-    const asset = release.assets.find(a => a.name === binaryName);
+    const asset = release.assets.find(a => a.name === archiveName);
     if (!asset) {
       throw new Error(
-        `Binary not found in release ${release.tag_name}. Looking for: ${binaryName}\n` +
+        `Binary not found in release ${release.tag_name}. Looking for: ${archiveName}\n` +
         `Available assets: ${release.assets.map(a => a.name).join(', ')}`
       );
     }
 
     console.log(`⬇️  Downloading ${asset.name}...`);
-    await downloadFile(asset.browser_download_url, destPath);
-    console.log(`✅ Downloaded to ${destPath}`);
+    const archivePath = path.join(BINARY_DIR, archiveName);
+    await downloadFile(asset.browser_download_url, archivePath);
+
+    console.log(`📦 Extracting archive...`);
+    const extractedLibPath = await extractArchive(archivePath, BINARY_DIR);
+
+    // Move the extracted library to the final destination
+    fs.renameSync(extractedLibPath, destPath);
+
+    // Cleanup
+    const tempDir = path.join(BINARY_DIR, '.temp-extract');
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    fs.unlinkSync(archivePath);
+
+    console.log(`✅ Installed to ${destPath}`);
   } catch (error) {
     console.error('❌ Error downloading gremllm binary:', error);
     console.error('\nYou can manually download the binary from:');

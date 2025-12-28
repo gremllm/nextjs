@@ -1,11 +1,6 @@
-import ffi from 'ffi-napi';
-import ref from 'ref-napi';
+import koffi from 'koffi';
 import path from 'path';
 import fs from 'fs';
-
-// C types
-const charPtr = ref.refType(ref.types.CString);
-const charPtrPtr = ref.refType(charPtr);
 
 /**
  * Get the platform-specific library filename
@@ -48,15 +43,15 @@ function getLibraryPath(): string {
 }
 
 // Load the native library
-let libschema: any;
+let Convert: any;
 
 try {
   const libPath = getLibraryPath();
+  const lib = koffi.load(libPath);
 
-  libschema = ffi.Library(libPath, {
-    'Convert': [ref.types.CString, [ref.types.CString, charPtrPtr, ref.types.int]],
-    'Free': ['void', [ref.types.CString]]
-  });
+  // Define function signature using koffi's declarative syntax
+  // koffi handles char** (array of strings) and char* (string) conversion automatically
+  Convert = lib.func('char* Convert(char* htmlInput, char** elementsToStrip, int elementsLen)');
 } catch (error) {
   console.error('Failed to load gremllm native library:', error);
   throw error;
@@ -80,34 +75,13 @@ export function convert(html: string, elementsToStrip: string[] = []): string {
   }
 
   try {
-    // Convert elementsToStrip array to C array
-    let elementsPtr = ref.NULL_POINTER;
-    let elementsLen = 0;
+    // koffi automatically handles the conversion of JavaScript arrays to char**
+    // and char* return values to JavaScript strings
+    const result = Convert(html, elementsToStrip, elementsToStrip.length);
 
-    if (elementsToStrip.length > 0) {
-      elementsLen = elementsToStrip.length;
-      const buffers = elementsToStrip.map(el => Buffer.from(el + '\0', 'utf8'));
-      const arrayBuffer = Buffer.alloc(buffers.length * ref.sizeof.pointer);
-
-      buffers.forEach((buf, i) => {
-        ref.writePointer(arrayBuffer, i * ref.sizeof.pointer, buf);
-      });
-
-      elementsPtr = arrayBuffer;
-    }
-
-    // Call the native Convert function
-    const resultPtr = libschema.Convert(html, elementsPtr, elementsLen);
-
-    if (resultPtr.isNull()) {
+    if (!result) {
       return html; // Return original on error
     }
-
-    // Convert result to JavaScript string
-    const result = ref.readCString(resultPtr, 0);
-
-    // Free the C string (important to prevent memory leaks)
-    libschema.Free(resultPtr);
 
     return result;
   } catch (error) {
