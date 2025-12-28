@@ -32,8 +32,6 @@ yarn add @gremllm/nextjs koffi
 
 > **Important**: `koffi` must be installed as a peer dependency for native module support.
 
-The postinstall script will automatically download the correct binary for your platform (Linux, macOS, Windows) from the [gremllm/lib releases](https://github.com/gremllm/lib/releases).
-
 ## Quick Start
 
 ### 1. Update your Next.js config
@@ -61,11 +59,10 @@ Create `app/api/gremllm/route.ts` and simply export the pre-built handler:
 
 ```typescript
 // app/api/gremllm/route.ts
-export { GET, runtime } from '@gremllm/nextjs/route';
+export { GET } from '@gremllm/nextjs/route';
 ```
 
-That's it! The handler includes:
-- ✅ Node.js runtime configuration
+The handler includes:
 - ✅ URL extraction from middleware headers
 - ✅ HTML fetching with proper User-Agent
 - ✅ Content-type validation
@@ -83,7 +80,7 @@ Just export the pre-built middleware:
 
 ```typescript
 // middleware.ts
-export { middleware, config } from '@gremllm/nextjs/middleware';
+export { middleware } from '@gremllm/nextjs/middleware';
 ```
 
 **Option B: Compose with existing middleware**
@@ -108,13 +105,33 @@ export function middleware(request: NextRequest) {
 
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: ['/((?!api/|_next/static|_next/image|favicon.ico).*)'],
-};
 ```
 
-### 4. Done! 🎉
+### 4. Add LLM Metadata to your pages (optional, but highly recommended)
+
+Create a `app/layout.tsx` or `pages/_document.tsx` file and add the following metadata to your pages:
+```typescript
+import {Html, Head, Main, NextScript} from 'next/document'
+import { llmInstructions } from '@gremllm/nextjs/metadata';
+
+export default function Document() {
+    return (
+      <Html lang="en">
+        <Head>
+          <meta name="llm-instructions" content={llmInstructions} /> {* This is what you need to add *}
+        </Head>
+        <body>
+          <Main/>
+          <NextScript/>
+        </body>
+      </Html>
+    )
+}
+```
+
+This will tell llm's that the ?gremllm query parameter is available.
+
+### 5. Done! 🎉
 
 Visit any page with `?gremllm`:
 
@@ -174,6 +191,8 @@ The following elements are **always** stripped:
 - `script`, `style`, `noscript` - Code and styling
 - `svg`, `iframe` - Embedded content
 
+You can keep them by adding `data-llm='keep'` to your elements.
+
 ### Environment Variables
 
 | Variable | Type | Default | Description |
@@ -188,220 +207,6 @@ GREMLLM_BASE_URL=http://localhost:3000
 ```
 
 This will make gremllm fetch pages using `http://localhost:3000/path` instead of the external `https://yourdomain.com/path`.
-
-## Platform Support
-
-The native gremllm library is automatically downloaded for:
-
-- **macOS**: ARM64 (Apple Silicon) and AMD64 (Intel)
-- **Linux**: ARM64 and AMD64
-- **Windows**: AMD64
-
-Binaries are pulled from [gremllm/lib releases](https://github.com/gremllm/lib/releases/latest).
-
-## API Reference
-
-### `withGremllm(nextConfig, gremllmConfig)`
-
-Higher-order function that wraps your Next.js configuration.
-
-**Parameters:**
-- `nextConfig` (object): Your Next.js configuration
-- `gremllmConfig` (object, optional):
-  - `elementsToStrip` (string[]): HTML elements/selectors to remove
-  - `debug` (boolean): Enable debug logging
-
-**Returns:** Enhanced Next.js configuration with webpack externals configured
-
-### `convert(html, elementsToStrip)`
-
-Convert HTML to markdown with custom element stripping.
-
-```typescript
-import { convert } from '@gremllm/nextjs';
-
-const markdown = convert(html, ['header', 'footer']);
-```
-
-### `convertWithDefaults(html)`
-
-Convert HTML to markdown using default element stripping.
-
-```typescript
-import { convertWithDefaults } from '@gremllm/nextjs';
-
-const markdown = convertWithDefaults(html);
-```
-
-Default elements stripped: `nav`, `aside`, `footer`, `header`, `script`, `style`, `noscript`, `svg`, `iframe`
-
-### Middleware Exports
-
-#### `middleware` and `config` from `@gremllm/nextjs/middleware`
-
-Pre-built middleware for standalone use:
-
-```typescript
-export { middleware, config } from '@gremllm/nextjs/middleware';
-```
-
-#### `gremllmMiddleware(request)` from `@gremllm/nextjs/middleware`
-
-Composable middleware function for integration with existing middleware:
-
-```typescript
-import { gremllmMiddleware } from '@gremllm/nextjs/middleware';
-
-export function middleware(request: NextRequest) {
-  const gremllmResponse = gremllmMiddleware(request);
-  if (gremllmResponse) return gremllmResponse;
-
-  // Your custom logic
-  return NextResponse.next();
-}
-```
-
-**Parameters:**
-- `request` (NextRequest): The incoming request
-
-**Returns:** `NextResponse | null` - Returns a rewrite response if `?gremllm` is present, null otherwise
-
-## Troubleshooting
-
-### "Cannot find module 'koffi'"
-
-Make sure koffi is installed:
-```bash
-npm install koffi
-```
-
-### "Native module not found"
-
-The binary downloads automatically during `npm install`. If it fails, manually run:
-```bash
-npm run postinstall
-```
-
-Or manually download from [releases](https://github.com/gremllm/lib/releases/latest) and place in `node_modules/@gremllm/nextjs/binaries/`.
-
-### "Edge runtime error"
-
-Ensure your API route has `export const runtime = 'nodejs'` - native modules require Node.js runtime, not Edge runtime.
-
-### Middleware not running
-
-- Check `middleware.ts` is at project root
-- Verify `config.matcher` is correct
-- Ensure `/api/gremllm` is excluded from matcher
-
-## Requirements
-
-- Next.js 13.0.0 or higher (App Router)
-- Node.js 18.0.0 or higher
-- Supported platforms: macOS (Intel/Apple Silicon), Linux (x64/ARM64), Windows (x64)
-
-## Examples
-
-See the [`examples/`](./examples) directory for complete working examples.
-
-## Advanced Usage
-
-### Custom Route Handler
-
-If you need to customize the route behavior (add authentication, custom caching, etc.), create your own handler:
-
-```typescript
-// app/api/gremllm/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { convertWithDefaults } from '@gremllm/nextjs';
-
-export const runtime = 'nodejs';
-
-export async function GET(request: NextRequest) {
-  // Add authentication
-  const apiKey = request.headers.get('x-api-key');
-  if (!isValidApiKey(apiKey)) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
-
-  const targetUrl = request.headers.get('x-gremllm-url');
-  if (!targetUrl) {
-    return NextResponse.json({ error: 'Missing target URL' }, { status: 400 });
-  }
-
-  try {
-    const response = await fetch(targetUrl);
-    const html = await response.text();
-    const markdown = convertWithDefaults(html);
-
-    // Custom caching or rate limiting logic here
-
-    return new NextResponse(markdown, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/markdown; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600',
-      },
-    });
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
-  }
-}
-```
-
-### Custom Middleware Logic
-
-Extend the middleware with custom logic:
-
-```typescript
-import { gremllmMiddleware } from '@gremllm/nextjs/middleware';
-
-export function middleware(request: NextRequest) {
-  // Add authentication before gremllm
-  const apiKey = request.headers.get('x-api-key');
-  if (request.nextUrl.searchParams.has('gremllm') && !isValidApiKey(apiKey)) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
-
-  // Handle gremllm conversion
-  const gremllmResponse = gremllmMiddleware(request);
-  if (gremllmResponse) {
-    return gremllmResponse;
-  }
-
-  return NextResponse.next();
-}
-```
-
-### Programmatic Conversion
-
-Use the converter directly in your code:
-
-```typescript
-import { convert, convertWithDefaults } from '@gremllm/nextjs';
-
-// With custom elements
-const optimized = convert(html, ['header', 'footer', 'nav']);
-
-// With defaults
-const optimized = convertWithDefaults(html);
-```
-
-## Security Considerations
-
-- ✅ Only strips HTML elements, doesn't add content
-- ✅ Uses native library with memory safety (Rust)
-- ✅ No external network calls (except fetching your own pages)
-- ⚠️ Increases server load (renders + converts on every `?gremllm` request)
-- ⚠️ Consider rate limiting for production
-- ⚠️ Consider caching converted pages
-
-## Performance Tips
-
-1. **Add caching**: Cache converted markdown to avoid repeated conversion
-2. **Rate limiting**: Limit `?gremllm` requests per IP
-3. **CDN**: Cache markdown responses at CDN level
-4. **ISR/SSG**: Use Incremental Static Regeneration where possible
 
 ## Related Projects
 

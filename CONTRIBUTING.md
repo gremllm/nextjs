@@ -5,8 +5,8 @@ Thanks for your interest in contributing!
 ## Development Setup
 
 ```bash
-git clone https://github.com/gremllm/nextjs-hoc-gremllm.git
-cd nextjs-hoc-gremllm
+git clone https://github.com/gremllm/nextjs.git
+cd nextjs
 npm install
 npm run build
 ```
