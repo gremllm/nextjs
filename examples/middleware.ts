@@ -5,7 +5,7 @@
 // ============================================
 // Just export the pre-built middleware:
 
-export { middleware, config } from '@gremllm/nextjs/middleware';
+export { middleware } from '@gremllm/nextjs/middleware';
 
 // ============================================
 // OPTION B: COMPOSE WITH CUSTOM MIDDLEWARE
@@ -27,15 +27,10 @@ export function middleware(request: NextRequest) {
 
   // Your custom middleware logic here
   // Examples:
-  // - Authentication checks
   // - Custom redirects
   // - Rate limiting
   // - Logging
 
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: ['/((?!api/|_next/static|_next/image|favicon.ico).*)'],
-};
 */

@@ -10,11 +10,27 @@ function getLibraryPath(): string {
 
   let libName: string;
   if (platform === 'darwin') {
-    libName = 'libschema.dylib';
+    if (arch === 'arm64') {
+      libName = 'libschema-darwin-arm64.dylib';
+    } else if (arch === 'x64') {
+      libName = 'libschema-darwin-amd64.dylib';
+    } else {
+      throw new Error(`Unsupported architecture for darwin: ${arch}`);
+    }
   } else if (platform === 'linux') {
-    libName = 'libschema.so';
+    if (arch === 'arm64') {
+      libName = 'libschema-linux-arm64.so';
+    } else if (arch === 'x64') {
+      libName = 'libschema-linux-amd64.so';
+    } else {
+      throw new Error(`Unsupported architecture for linux: ${arch}`);
+    }
   } else if (platform === 'win32') {
-    libName = 'libschema.dll';
+    if (arch === 'x64') {
+      libName = 'libschema-windows-amd64.exe';
+    } else {
+      throw new Error(`Unsupported architecture for windows: ${arch}`);
+    }
   } else {
     throw new Error(`Unsupported platform: ${platform}`);
   }
@@ -27,6 +43,8 @@ function getLibraryPath(): string {
     path.join(process.cwd(), 'binaries', libName),
     // In node_modules
     path.join(process.cwd(), 'node_modules', '@gremllm', 'nextjs', 'binaries', libName),
+    // In standalone build
+    path.join(process.cwd(), '.next', 'standalone', 'node_modules', '@gremllm', 'nextjs', 'binaries', libName),
   ];
 
   for (const libPath of possiblePaths) {
@@ -36,8 +54,8 @@ function getLibraryPath(): string {
   }
 
   throw new Error(
-    `Could not find gremllm library. Searched:\n${possiblePaths.join('\n')}\n\n` +
-    `Please run 'npm install' to download the binary for your platform.`
+    `Could not find gremllm library for ${platform}-${arch}. Searched:\n${possiblePaths.join('\n')}\n\n` +
+    `Expected binary: ${libName}`
   );
 }
 
@@ -96,21 +114,4 @@ export function convert(html: string, elementsToStrip: string[] = []): string {
     console.error('Error converting HTML:', error);
     return html; // Return original HTML on error
   }
-}
-
-/**
- * Convert HTML to markdown with default element stripping
- *
- * Note: The native library has its own defaults that are always applied:
- * nav, aside, footer, header, script, style, noscript, svg, iframe
- *
- * This function adds additional common elements to strip for extra optimization.
- *
- * @param html - HTML string to convert
- * @returns LLM-optimized markdown
- */
-export function convertWithDefaults(html: string): string {
-  // Pass empty array to use library defaults only
-  // The library already strips: nav, aside, footer, header, script, style, noscript, svg, iframe
-  return convert(html, []);
 }

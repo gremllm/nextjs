@@ -21,15 +21,13 @@
   "files": [
     "dist",
     "binaries",
-    "middleware.ts",
-    "middleware.js",
     "examples"
   ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "prepare": "npm run build",
-    "postinstall": "node dist/scripts/download-binary.js || true"
+    "fetch-binaries": "npm run build && node dist/scripts/fetch-all-binaries.js"
   },
   "keywords": [
     "nextjs",

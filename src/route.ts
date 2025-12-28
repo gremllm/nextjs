@@ -9,10 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { convert, convertWithDefaults } from './index';
-
-// Force Node.js runtime (required for native modules)
-export const runtime = 'nodejs';
+import { convert} from './index';
 
 export async function GET(request: NextRequest) {
   try {
@@ -81,9 +78,7 @@ export async function GET(request: NextRequest) {
 
     // Convert HTML to markdown
     const html = await response.text();
-    const markdown = elementsToStrip.length > 0
-      ? convert(html, elementsToStrip)
-      : convertWithDefaults(html);
+    const markdown = convert(html, elementsToStrip);
 
     // Return as markdown
     return new NextResponse(markdown, {
@@ -96,7 +91,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[gremllm] API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error },
       { status: 500 }
     );
   }

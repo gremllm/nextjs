@@ -7,4 +7,4 @@
 
 export { withGremllm } from './lib/config';
 export type { GremllmConfig } from './lib/config';
-export { convert, convertWithDefaults } from './lib/ffi';
+export { convert } from './lib/ffi';
